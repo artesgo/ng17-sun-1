@@ -11,6 +11,7 @@ import {
   Bodies,
   Composite,
   Engine,
+  Events,
   Mouse,
   MouseConstraint,
   Query,
@@ -40,6 +41,9 @@ export class AppComponent implements OnInit, AfterViewInit {
   mouse: Mouse | undefined;
   mConstraint: MouseConstraint | undefined;
 
+  player = {
+    hp: 10,
+  };
   boxA = Bodies.circle(400, 200, 40, {
     render: {
       sprite: {
@@ -79,6 +83,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   zone = inject(NgZone);
   ngAfterViewInit(): void {
     this.zone.runOutsideAngular(() => {
+      Events.on(this.mConstraint, 'mousedown', this.addEnemy.bind(this));
+      // TODO: Find KeyboardConstraint??
+      Events.on(this.mConstraint, 'mousedown', this.addBullet.bind(this));
+
       // this is a browser api, all frames can access this without imports
       requestAnimationFrame(this.gameloop.bind(this));
     });
@@ -86,22 +94,88 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   enemies: Matter.Body[] = [];
-  gameloop() {
-    // console.log('hi', this.boxA);
-    const collisions = Query.collides(this.boxA, this.enemies);
+  bullets: Matter.Body[] = [];
 
-    collisions.forEach((collision) => {
-      console.log('bumped', collision);
-      collision.bodyA; // always the first parameter for Query.collides
-      collision.bodyB; // always an item in the second parameter
-      // calculate hp
-      // or delete things that touch a particular object
+  playerHits() {
+    const collisions = Query.collides(this.boxA, this.enemies);
+    collisions.forEach(() => {
+      this.player.hp--;
+    });
+    if (this.player.hp < 1) {
+      Composite.remove(this.engine.world, [this.boxA]);
+    }
+  }
+
+  enemyHits() {
+    this.enemies.forEach((enemy) => {
+      const enemyHits = Query.collides(enemy, this.bullets);
+      enemyHits.forEach((hit) => {
+        enemy.label = 'dead';
+        hit.bodyB.label = 'dead';
+      });
     });
 
-    // the requestAnimationFrame runs every 16ms
-    // requestAnimationFrame runs at different speeds, if you have a fast machine
-    // it could do more frames per second, e.g. 12ms
-    // if it is a slow machine, it might do 25ms
+    const deadEnemies = this.enemies.filter((enemy) => enemy.label === 'dead');
+    const deadBullets = this.bullets.filter(
+      (bullet) => bullet.label === 'dead'
+    );
+
+    // Removing Objects from Matterjs
+    Composite.remove(this.engine.world, deadEnemies);
+    Composite.remove(this.engine.world, deadBullets);
+
+    // TODO: can we use this to track items in the world
+    // Composite.get(this.engine.world, 1, '')
+
+    // Removing objects from our data
+    this.enemies = this.enemies.filter((enemy) => enemy.label !== 'dead');
+    this.bullets = this.bullets.filter((bullet) => bullet.label !== 'dead');
+  }
+
+  gameloop() {
+    this.playerHits();
+    this.enemyHits();
     requestAnimationFrame(this.gameloop.bind(this));
+  }
+
+  addEnemy() {
+    const enemy = Bodies.rectangle(450, 50, 80, 80, {
+      render: {
+        sprite: {
+          texture: './assets/crow.png',
+          xScale: 0.55,
+          yScale: 0.55,
+        },
+      },
+    });
+    this.enemies.push(enemy);
+    Composite.add(this.engine.world, [enemy]);
+  }
+
+  // some sort of game AI to move towards player and attack them
+  // the game AI could have special routines that they perform
+
+  addBullet() {
+    // TODO: fire the bullet in the direction of the mouse
+    // install victorjs for working with vectors
+    // (x,y) determine direction of 2d space
+    const bullet = Bodies.rectangle(
+      this.boxA.position.x,
+      this.boxA.position.y,
+      15,
+      15,
+      {
+        render: {
+          sprite: {
+            texture: './assets/crabboid.png',
+            xScale: 0.1,
+            yScale: 0.1,
+          },
+        },
+        restitution: 1,
+      }
+    );
+    this.bullets.push(bullet);
+    Composite.add(this.engine.world, [bullet]);
   }
 }
