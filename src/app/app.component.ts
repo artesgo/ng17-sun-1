@@ -9,9 +9,11 @@ import { RouterModule } from '@angular/router';
 import { MyButton } from './components/button';
 import {
   Bodies,
+  Body,
   Composite,
   Engine,
   Events,
+  IMousePoint,
   Mouse,
   MouseConstraint,
   Query,
@@ -19,6 +21,8 @@ import {
   Runner,
   World,
 } from 'matter-js';
+import Victor from 'victor';
+import { Subject, debounceTime, of, switchMap, tap } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -42,7 +46,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   mConstraint: MouseConstraint | undefined;
 
   player = {
-    hp: 10,
+    hp: 1,
   };
   boxA = Bodies.circle(400, 200, 40, {
     render: {
@@ -84,8 +88,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   ngAfterViewInit(): void {
     this.zone.runOutsideAngular(() => {
       Events.on(this.mConstraint, 'mousedown', this.addEnemy.bind(this));
-      // TODO: Find KeyboardConstraint??
-      Events.on(this.mConstraint, 'mousedown', this.addBullet.bind(this));
+      Events.on(this.mConstraint, 'mousedown', (event) =>
+        this.addBullet.bind(this)(
+          event.source?.mouse.position,
+          this.boxA.position
+        )
+      );
 
       // this is a browser api, all frames can access this without imports
       requestAnimationFrame(this.gameloop.bind(this));
@@ -96,15 +104,34 @@ export class AppComponent implements OnInit, AfterViewInit {
   enemies: Matter.Body[] = [];
   bullets: Matter.Body[] = [];
 
+  hitEvent = new Subject<number>();
+  takeHits = this.hitEvent
+    .pipe(
+      tap((dmg) => this.takeDamage(dmg)),
+      debounceTime(1000) // don't do anything for 1 second after an event
+    )
+    .subscribe();
+
   playerHits() {
-    const collisions = Query.collides(this.boxA, this.enemies);
-    collisions.forEach(() => {
-      this.player.hp--;
-    });
+    if (this.player.hp > 0) {
+      const collisions = Query.collides(this.boxA, this.enemies);
+      collisions.forEach(() => {
+        this.hitEvent.next(1);
+      });
+    }
+  }
+
+  takeDamage(dmg: number) {
+    this.player.hp -= dmg;
     if (this.player.hp < 1) {
       Composite.remove(this.engine.world, [this.boxA]);
     }
   }
+
+  // second API call, that requires userId
+  // isBirthday(userId: number) {
+  //   return this.birthdayService.isBirthday(userId);
+  // }
 
   enemyHits() {
     this.enemies.forEach((enemy) => {
@@ -155,27 +182,34 @@ export class AppComponent implements OnInit, AfterViewInit {
   // some sort of game AI to move towards player and attack them
   // the game AI could have special routines that they perform
 
-  addBullet() {
-    // TODO: fire the bullet in the direction of the mouse
-    // install victorjs for working with vectors
-    // (x,y) determine direction of 2d space
-    const bullet = Bodies.rectangle(
-      this.boxA.position.x,
-      this.boxA.position.y,
-      15,
-      15,
-      {
-        render: {
-          sprite: {
-            texture: './assets/crabboid.png',
-            xScale: 0.1,
-            yScale: 0.1,
+  addBullet(
+    mousePosition: IMousePoint | undefined,
+    playerPosition: Matter.Vector
+  ) {
+    if (mousePosition && this.player.hp > 0) {
+      const _playerPosition = new Victor(playerPosition.x, playerPosition.y);
+      const _mousePosition = new Victor(mousePosition.x, mousePosition.y);
+      const _direction = _mousePosition.subtract(_playerPosition).normalize();
+
+      const bullet = Bodies.rectangle(
+        this.boxA.position.x,
+        this.boxA.position.y,
+        15,
+        15,
+        {
+          render: {
+            sprite: {
+              texture: './assets/crabboid.png',
+              xScale: 0.1,
+              yScale: 0.1,
+            },
           },
-        },
-        restitution: 1,
-      }
-    );
-    this.bullets.push(bullet);
-    Composite.add(this.engine.world, [bullet]);
+          restitution: 1,
+        }
+      );
+      this.bullets.push(bullet);
+      Body.setVelocity(bullet, _direction.multiply(new Victor(5, 5)));
+      Composite.add(this.engine.world, [bullet]);
+    }
   }
 }
