@@ -22,7 +22,7 @@ import {
   World,
 } from 'matter-js';
 import Victor from 'victor';
-import { Subject, debounceTime, of, switchMap, tap } from 'rxjs';
+import { Subject, tap, throttleTime } from 'rxjs';
 
 @Component({
   standalone: true,
@@ -41,12 +41,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       wireframes: false,
     },
   });
-
   mouse: Mouse | undefined;
   mConstraint: MouseConstraint | undefined;
-
-  player = {
-    hp: 1,
+  playerState = {
+    hp: 10,
   };
   boxA = Bodies.circle(400, 200, 40, {
     render: {
@@ -104,16 +102,20 @@ export class AppComponent implements OnInit, AfterViewInit {
   enemies: Matter.Body[] = [];
   bullets: Matter.Body[] = [];
 
+  // hitEvent can be "next(...)"'d to, which triggers listeners on the hitEvent subject
   hitEvent = new Subject<number>();
+
+  // when a hitEvent happens, we listen to it with this pipe and subscribe
   takeHits = this.hitEvent
     .pipe(
+      throttleTime(1000),
       tap((dmg) => this.takeDamage(dmg)),
-      debounceTime(1000) // don't do anything for 1 second after an event
+      tap((dmg) => this.displayDamageNumber(dmg))
     )
     .subscribe();
 
   playerHits() {
-    if (this.player.hp > 0) {
+    if (this.playerState.hp > 0) {
       const collisions = Query.collides(this.boxA, this.enemies);
       collisions.forEach(() => {
         this.hitEvent.next(1);
@@ -122,16 +124,30 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   takeDamage(dmg: number) {
-    this.player.hp -= dmg;
-    if (this.player.hp < 1) {
+    this.playerState.hp -= dmg;
+    if (this.playerState.hp < 1) {
       Composite.remove(this.engine.world, [this.boxA]);
     }
   }
 
-  // second API call, that requires userId
-  // isBirthday(userId: number) {
-  //   return this.birthdayService.isBirthday(userId);
-  // }
+  damageNumbers: { damage: number; body: Matter.Body }[] = [];
+
+  // TODO: update hitEvent with hit location, not just damage
+  // TODO: make dmg numbers disappear after some time
+  // dmg numbers don't interact, no collision with other objects
+  displayDamageNumber(damage: number) {
+    // get location of collision
+    const body = Bodies.rectangle(450, 250, 80, 80, {
+      // render: { opacity: 0 },
+      isSensor: true,
+    });
+    // Create DOM elements that render our text
+    // and track the positions of the elements using Matterjs
+    this.damageNumbers.push({ body, damage });
+    const randomX = Math.random() * 6 - 3;
+    Body.setVelocity(body, new Victor(3 + randomX, -10));
+    Composite.add(this.engine.world, [body]);
+  }
 
   enemyHits() {
     this.enemies.forEach((enemy) => {
@@ -186,7 +202,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     mousePosition: IMousePoint | undefined,
     playerPosition: Matter.Vector
   ) {
-    if (mousePosition && this.player.hp > 0) {
+    if (mousePosition && this.playerState.hp > 0) {
       const _playerPosition = new Victor(playerPosition.x, playerPosition.y);
       const _mousePosition = new Victor(mousePosition.x, mousePosition.y);
       const _direction = _mousePosition.subtract(_playerPosition).normalize();

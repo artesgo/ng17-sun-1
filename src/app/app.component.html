@@ -1,1 +1,9 @@
 <router-outlet></router-outlet>
+
+<div class="damageNumbers">
+    @for(item of damageNumbers; track $index) {
+        <div class="dmg" >
+            {{item.damage}}
+        </div>
+    }
+</div>
