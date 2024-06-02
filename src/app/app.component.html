@@ -1,8 +1,12 @@
 <router-outlet></router-outlet>
 
+<!-- container for all the damage numbers -->
 <div class="damageNumbers">
+
+    <!-- all the individual damage instances -->
     @for(item of damageNumbers; track $index) {
-        <div class="dmg" >
+        <!-- html allows us to attach attributes -->
+        <div class="dmg" [attr.style]="getDamageLocation(item.body)" style="border: 1px solid;">
             {{item.damage}}
         </div>
     }

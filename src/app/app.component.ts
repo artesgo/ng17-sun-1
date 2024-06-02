@@ -67,7 +67,46 @@ export class AppComponent implements OnInit, AfterViewInit {
   });
   ground1 = Bodies.rectangle(400, 400, 800, 60, { isStatic: true });
 
+  keyHandlers: any = {
+    KeyD: () => {
+      Body.applyForce(
+        this.boxA,
+        {
+          x: this.boxA.position.x,
+          y: this.boxA.position.y,
+        },
+        { x: 0.008, y: 0 }
+      );
+    },
+    KeyA: () => {
+      Body.applyForce(
+        this.boxA,
+        {
+          x: this.boxA.position.x,
+          y: this.boxA.position.y,
+        },
+        { x: -0.008, y: 0 }
+      );
+    },
+    // TODO: how to add jumping
+  };
+
+  keysDown = new Set();
+
   ngOnInit() {
+    document.addEventListener('keydown', (event) => {
+      this.keysDown.add(event.code);
+    });
+    document.addEventListener('keyup', (event) => {
+      this.keysDown.delete(event.code);
+    });
+    Events.on(this.engine, 'beforeUpdate', () => {
+      [...this.keysDown].forEach((k: unknown) => {
+        console.log(k);
+        this.keyHandlers[k as string]?.();
+      });
+    });
+
     Composite.add(this.engine.world, [this.boxA, this.boxB, this.ground1]);
 
     Render.run(this.render);
@@ -147,6 +186,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     const randomX = Math.random() * 6 - 3;
     Body.setVelocity(body, new Victor(3 + randomX, -10));
     Composite.add(this.engine.world, [body]);
+  }
+
+  /**
+   * convert a matter body position into left / top css coordinates
+   * @param body
+   * @returns string
+   */
+  getDamageLocation(body: Matter.Body) {
+    return `
+      left: ${body.position.x}px;
+      top: ${body.position.y}px;
+    `;
   }
 
   enemyHits() {

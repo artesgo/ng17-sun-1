@@ -1,7 +1,12 @@
-.dmg {
-    position: absolute;
-}
-
 .damageNumbers {
     position: relative;
+}
+
+.dmg {
+    position: absolute;
+    z-index: 999; // shows it on top of our canvas
+    background: white;
+    color: black;
+    font-size: 32px;
+    font-family: Arial, Helvetica, sans-serif;
 }
