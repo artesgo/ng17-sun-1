@@ -33,12 +33,18 @@ import { Subject, tap, throttleTime } from 'rxjs';
 })
 export class AppComponent implements OnInit, AfterViewInit {
   title = 'ng17-sun-1';
-  engine = Engine.create({});
+  engine = Engine.create({
+    gravity: {
+      y: 0,
+    },
+  });
   render = Render.create({
     element: document.body,
     engine: this.engine,
     options: {
       wireframes: false,
+      height: 800,
+      width: 1200,
     },
   });
   mouse: Mouse | undefined;
@@ -54,7 +60,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         yScale: 0.55,
       },
     },
-    restitution: 1, // bounce
+    restitution: 0, // bounce
   });
   boxB = Bodies.rectangle(450, 50, 80, 80, {
     render: {
@@ -65,7 +71,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       },
     },
   });
-  ground1 = Bodies.rectangle(400, 400, 800, 60, { isStatic: true });
+
+  topWall = Bodies.rectangle(0, 0, 2400, 60, { isStatic: true });
+  leftWall = Bodies.rectangle(0, 0, 60, 1600, { isStatic: true });
+  bottomWall = Bodies.rectangle(0, 790, 2400, 60, { isStatic: true });
+  rightWall = Bodies.rectangle(1190, 0, 60, 1600, { isStatic: true });
 
   keyHandlers: any = {
     KeyD: () => {
@@ -88,6 +98,33 @@ export class AppComponent implements OnInit, AfterViewInit {
         { x: -0.008, y: 0 }
       );
     },
+    KeyW: () => {
+      Body.applyForce(
+        this.boxA,
+        {
+          x: this.boxA.position.x,
+          y: this.boxA.position.y,
+        },
+        { x: 0, y: -0.008 }
+      );
+    },
+    KeyS: () => {
+      // const collisions = Query.collides(this.boxA, [this.ground1]);
+      // array destructuring, you can pull out however many you are interested in
+      // and ignore the others
+      // const [one, two, ...otherCollisions] = collisions;
+
+      // if (collisions[0]) {
+      // }
+      Body.applyForce(
+        this.boxA,
+        {
+          x: this.boxA.position.x,
+          y: this.boxA.position.y,
+        },
+        { x: 0, y: 0.008 }
+      );
+    },
     // TODO: how to add jumping
   };
 
@@ -102,12 +139,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
     Events.on(this.engine, 'beforeUpdate', () => {
       [...this.keysDown].forEach((k: unknown) => {
-        console.log(k);
         this.keyHandlers[k as string]?.();
       });
     });
 
-    Composite.add(this.engine.world, [this.boxA, this.boxB, this.ground1]);
+    Composite.add(this.engine.world, [
+      this.boxA,
+      this.boxB,
+      this.topWall,
+      this.leftWall,
+      this.bottomWall,
+      this.rightWall,
+    ]);
 
     Render.run(this.render);
     const runner = Runner.create();
@@ -197,7 +240,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     return `
       left: ${body.position.x}px;
       top: ${body.position.y}px;
+
+      width: ${body.bounds.min}px;
+      height: ${body.bounds.min}px;
     `;
+    // TODO: Find out how to get body height / width
   }
 
   enemyHits() {
