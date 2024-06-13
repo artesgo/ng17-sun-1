@@ -43,8 +43,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     engine: this.engine,
     options: {
       wireframes: false,
-      height: 800,
-      width: 1200,
+      height: window.innerHeight,
+      width: window.innerWidth,
     },
   });
   mouse: Mouse | undefined;
@@ -72,10 +72,30 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
   });
 
-  topWall = Bodies.rectangle(0, 0, 2400, 60, { isStatic: true });
-  leftWall = Bodies.rectangle(0, 0, 60, 1600, { isStatic: true });
-  bottomWall = Bodies.rectangle(0, 790, 2400, 60, { isStatic: true });
-  rightWall = Bodies.rectangle(1190, 0, 60, 1600, { isStatic: true });
+  topWall = Bodies.rectangle(0, -20, window.innerWidth * 2, 40, {
+    isStatic: true,
+  });
+  leftWall = Bodies.rectangle(-20, 0, 40, window.innerHeight * 2, {
+    isStatic: true,
+  });
+  bottomWall = Bodies.rectangle(
+    0,
+    window.innerHeight + 20,
+    window.innerWidth * 2,
+    40,
+    {
+      isStatic: true,
+    }
+  );
+  rightWall = Bodies.rectangle(
+    window.innerWidth + 20,
+    0,
+    40,
+    window.innerHeight * 2,
+    {
+      isStatic: true,
+    }
+  );
 
   keyHandlers: any = {
     KeyD: () => {
@@ -125,7 +145,6 @@ export class AppComponent implements OnInit, AfterViewInit {
         { x: 0, y: 0.008 }
       );
     },
-    // TODO: how to add jumping
   };
 
   keysDown = new Set();
